@@ -1,8 +1,8 @@
-var trex;
+var trex, trex_collided;
 var trex_running;
 var ground; 
 var groundImage; 
-var invibleGround; 
+var invisibleGround; 
 var cloudImage; 
 var obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6; 
 
@@ -15,10 +15,12 @@ var gameState = PLAY;
 var cloudsGroup, obstaclesGroup; 
 var gameOverImg, restarImg; 
 var gameOver, restart; 
-
+var jumpSound, checkPointSound, dieSound; 
 
 function preload(){
   trex_running = loadAnimation("charm1.png", "charm2.png", "charm3.png"); 
+  trex_collided = loadAnimation("charmCollided.png");
+  
   groundImage = loadImage("ground2.png"); 
   cloudImage = loadImage("nube.png"); 
 
@@ -32,36 +34,42 @@ function preload(){
   gameOverImg = loadImage("gameOver.png"); 
   restarImg = loadImage("restart.png"); 
 
+  jumpSound = loadSound("jump.mp3"); 
+  dieSound = loadSound("die.mp3"); 
+  checkPointSound = loadSound("checkPoint.mp3"); 
 }
 
 function setup(){
   createCanvas(600,400);
   
   //crear sprite de Trex
-  trex = createSprite(50, 200, 50, 20); 
+  trex = createSprite(50, 170, 50, 20); 
   trex.addAnimation("running", trex_running); 
+  trex.addAnimation("collided" ,trex_collided);
   trex.scale = 0.15; 
   
-  ground = createSprite(300, 250, 500, 10); 
+  ground = createSprite(300, 230, 500, 10); 
   ground.addImage("suelo", groundImage); 
-  ground.velocityX = -4; 
-
-  invibleGround = createSprite(100, 270, 500, 10); 
-  invibleGround.visible = false; 
-
-  gameOver = createSprite(200, 300); 
-  gameOver.addImage("gameOver", gameOverImg); 
-
-  restart = createSprite(300, 110); 
-  restart.addImage("restart_Img", restarImg); 
   
+
+  invisibleGround = createSprite(100, 230, 500, 20); 
+  invisibleGround.visible = false; 
+
+  gameOver = createSprite(250, 200); 
+  gameOver.addImage("gameOver", gameOverImg); 
+  gameOver.scale = 0.5; 
+
+  restart = createSprite(250, 150); 
+  restart.addImage("restart_Img", restarImg); 
+  restart.scale = 0.5; 
   //cloudsGroup = createGroup(); 
   cloudsGroup = new Group(); 
-
   //obstaclesGroup = createGroup(); 
   obstaclesGroup = new Group(); 
 
   score = 0;
+  trex.setCollider("rectangle",0,0,40,10);
+  //trex.debug = true;  
       
 }
 
@@ -74,35 +82,58 @@ function draw(){
 
     gameOver.visible = false; 
     restart.visible = false; 
+
+    ground.velocityX = -(4+3 * score/100); 
     score = score + Math.round(frameCount/60);
+
+    if(score > 0 && score % 100 === 0){
+      checkPointSound.play(); 
+    }
 
     if(keyDown("space") && trex.y >= 100){
       trex.velocityY = -7; 
+      jumpSound.play(); 
     }
   
     trex.velocityY = trex.velocityY + 0.8; 
   
+    spawnClouds(); 
+    spawnObstacles(); 
+
     if(ground.x < 0){
       ground.x = ground.width/2;     
     }
-
-    spawnClouds(); 
-    spawnObstacles(); 
 
     if(obstaclesGroup.isTouching(trex)){
       gameState = END; 
     }
   
-  }else if(gameState === END){
-    ground.velocityX = 0; 
-    gameOver.viaible = true; 
+  }else if(gameState === END){   
+    
+    gameOver.visible = true; 
     restart.visible = true;
 
     obstaclesGroup.setVelocityXEach(0); 
-    cloudsGroup.setVelocityXEach(0);    
+    cloudsGroup.setVelocityXEach(0);
+    
+    ground.velocityX = 0; 
+    trex.velocityX = 0; 
+    trex.velocityY = 0;
+
+    trex.changeAnimation("collided", trex_collided);
+    trex.scale= 0.20; 
+
+    obstaclesGroup.depth = trex.depth; 
+    trex.depth = trex.depth +1; 
+    
+    obstaclesGroup.setLifetimeEach(-1);
+    cloudsGroup.setLifetimeEach(-1);
+     
+    obstaclesGroup.setVelocityXEach(0);
+    cloudsGroup.setVelocityXEach(0);
   }  
   
-  trex.collide(invibleGround);  
+  trex.collide(invisibleGround);  
   drawSprites(); 
 }
 
@@ -111,7 +142,7 @@ function spawnClouds(){
   if(frameCount % 60 === 0){
     var aleatorio = Math.round(random(10, 150)); 
     var cloud = createSprite(600, aleatorio, 40, 10); 
-    cloud.velocityX = -3; 
+    cloud.velocityX = -(3 + score/100); 
     cloud.addImage(cloudImage); 
     cloud.scale = 0.12; 
 
@@ -125,12 +156,12 @@ function spawnClouds(){
 
 function spawnObstacles(){
   if(frameCount % 60 === 0){
-
-    var obstacle = createSprite(400, 220, 10, 40); 
-    obstacle.velocityX = -6; 
+    var randY = Math.round(random(230, 250));
+    var obstacle = createSprite(400, randY, 10, 40); 
+    obstacle.velocityX = -(6 + score/100); 
     
-    var rand = Math.round(random(1, 6))
-    console.log(rand); 
+    var rand = Math.round(random(1, 6));
+  
     switch(rand){
       case 1: obstacle.addImage(obstacle1); 
         break; 
@@ -143,8 +174,7 @@ function spawnObstacles(){
       case 5: obstacle.addImage(obstacle5); 
         break; 
       case 6: obstacle.addImage(obstacle6); 
-        break; 
-      
+        break;       
       default: break; 
     }
     obstacle.scale = 0.7; 
